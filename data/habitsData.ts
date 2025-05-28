@@ -27,7 +27,7 @@ export const arcsData: Arc[] = [
   {
     id: 'arc-1',
     name: 'Redemption Arc',
-    imageUrl: require('@/assets/images/act1.png'),
+    imageUrl: 'https://images.pexels.com/photos/2531904/pexels-photo-2531904.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
     description: 'Master your mind through anger inside.',
     days: [
       {
@@ -115,7 +115,7 @@ export const arcsData: Arc[] = [
   {
     id: 'arc-2',
     name: 'Beast Mode',
-    imageUrl: require('@/assets/images/act1.png'),
+    imageUrl: 'https://images.pexels.com/photos/1431282/pexels-photo-1431282.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=2',
     description: 'Transform your body and mind through intense training',
     days: [
       {
