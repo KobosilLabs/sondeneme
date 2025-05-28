@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { 
   View, 
   ScrollView, 
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Text,
   Image,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Arc } from '@/data/habitsData';
@@ -23,74 +24,91 @@ const ARC_HEIGHT = 200;
 const ARC_SPACING = 80;
 const SPINE_WIDTH = 4;
 const NODE_SIZE = 20;
+const TOTAL_ARC_HEIGHT = ARC_HEIGHT + ARC_SPACING;
 
 export default function ActProgression({ 
   arcs, 
   currentArcIndex,
   onSelectArc 
 }: ActProgressionProps) {
-  const pulseAnim = React.useRef(new Animated.Value(0)).current;
-  const shimmerAnim = React.useRef(new Animated.Value(0)).current;
-  const glowAnim = React.useRef(new Animated.Value(0)).current;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const pulseAnim = useRef(new Animated.Value(0)).current;
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnims = useRef(arcs.map(() => new Animated.Value(1))).current;
   
-  React.useEffect(() => {
-    // Pulse animation for the spine
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: false,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0,
-          duration: 2000,
-          useNativeDriver: false,
-        }),
-      ])
-    );
+  // Auto-scroll to current arc
+  useEffect(() => {
+    const yOffset = currentArcIndex * TOTAL_ARC_HEIGHT;
+    scrollViewRef.current?.scrollTo({
+      y: yOffset,
+      animated: true,
+    });
     
-    // Shimmer animation for nodes
-    const shimmer = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: false,
-        }),
-        Animated.timing(shimmerAnim, {
-          toValue: 0,
-          duration: 1500,
-          useNativeDriver: false,
-        }),
-      ])
-    );
+    // Animate scale of current arc
+    scaleAnims.forEach((anim, index) => {
+      Animated.spring(anim, {
+        toValue: index === currentArcIndex ? 1.02 : 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }).start();
+    });
+  }, [currentArcIndex]);
+  
+  useEffect(() => {
+    const animations = [
+      // Spine pulse animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 2000,
+            useNativeDriver: false,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 0,
+            duration: 2000,
+            useNativeDriver: false,
+          }),
+        ])
+      ),
+      
+      // Node shimmer animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmerAnim, {
+            toValue: 1,
+            duration: 1500,
+            useNativeDriver: false,
+          }),
+          Animated.timing(shimmerAnim, {
+            toValue: 0,
+            duration: 1500,
+            useNativeDriver: false,
+          }),
+        ])
+      ),
+      
+      // Arc glow animation
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, {
+            toValue: 1,
+            duration: 3000,
+            useNativeDriver: false,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 0,
+            duration: 3000,
+            useNativeDriver: false,
+          }),
+        ])
+      ),
+    ];
     
-    // Glow animation for current arc
-    const glow = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glowAnim, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: false,
-        }),
-        Animated.timing(glowAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: false,
-        }),
-      ])
-    );
-    
-    pulse.start();
-    shimmer.start();
-    glow.start();
-    
-    return () => {
-      pulse.stop();
-      shimmer.stop();
-      glow.stop();
-    };
+    animations.forEach(anim => anim.start());
+    return () => animations.forEach(anim => anim.stop());
   }, []);
   
   const spineColor = pulseAnim.interpolate({
@@ -110,6 +128,7 @@ export default function ActProgression({
   
   return (
     <ScrollView 
+      ref={scrollViewRef}
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
@@ -126,89 +145,110 @@ export default function ActProgression({
       />
       
       {/* Arcs */}
-      {arcs.map((arc, index) => (
-        <View key={arc.id} style={styles.arcWrapper}>
-          {/* Connection Node */}
-          <Animated.View 
-            style={[
-              styles.nodeOuter,
-              { 
-                borderColor: index === currentArcIndex ? '#FF4E4E' : '#7A00F3',
-                shadowRadius: index === currentArcIndex ? nodeGlow : 4,
-              }
-            ]} 
-          >
+      {arcs.map((arc, index) => {
+        const isCurrentArc = index === currentArcIndex;
+        const isPastArc = index < currentArcIndex;
+        
+        return (
+          <View key={arc.id} style={styles.arcWrapper}>
+            {/* Connection Node */}
             <Animated.View 
               style={[
-                styles.nodeInner,
+                styles.nodeOuter,
                 { 
-                  backgroundColor: index === currentArcIndex ? '#FF4E4E' : '#7A00F3',
-                  shadowRadius: index === currentArcIndex ? nodeGlow : 4,
+                  borderColor: isCurrentArc ? '#FF4E4E' : isPastArc ? '#7A00F3' : '#5A5A5A',
+                  shadowRadius: isCurrentArc ? nodeGlow : 4,
+                  shadowColor: isCurrentArc ? '#FF4E4E' : '#7A00F3',
                 }
               ]} 
-            />
-          </Animated.View>
-          
-          <Animated.View
-            style={[
-              styles.arcContainer,
-              index === currentArcIndex && {
-                shadowRadius: arcGlow,
-                transform: [{ scale: 1.02 }],
-              }
-            ]}
-          >
-            <TouchableOpacity
-              onPress={() => onSelectArc(index)}
-              activeOpacity={0.8}
-              style={styles.arcTouchable}
             >
-              <LinearGradient
-                colors={[
-                  index === currentArcIndex 
-                    ? 'rgba(122, 0, 243, 0.2)' 
-                    : 'rgba(30, 30, 30, 0.95)',
-                  'rgba(30, 30, 30, 0.95)',
-                ]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.arcContent}
+              <Animated.View 
+                style={[
+                  styles.nodeInner,
+                  { 
+                    backgroundColor: isCurrentArc ? '#FF4E4E' : isPastArc ? '#7A00F3' : '#5A5A5A',
+                    shadowRadius: isCurrentArc ? nodeGlow : 4,
+                    shadowColor: isCurrentArc ? '#FF4E4E' : '#7A00F3',
+                  }
+                ]} 
+              />
+            </Animated.View>
+            
+            <Animated.View
+              style={[
+                styles.arcContainer,
+                {
+                  shadowRadius: isCurrentArc ? arcGlow : 5,
+                  shadowColor: isCurrentArc ? '#FF4E4E' : '#7A00F3',
+                  transform: [{ scale: scaleAnims[index] }],
+                }
+              ]}
+            >
+              <TouchableOpacity
+                onPress={() => onSelectArc(index)}
+                activeOpacity={0.8}
+                style={styles.arcTouchable}
               >
-                <View style={styles.arcImageContainer}>
-                  <Image 
-                    source={{ uri: arc.imageUrl }}
-                    style={styles.arcImage}
-                    resizeMode="cover"
-                  />
-                  <LinearGradient
-                    colors={['transparent', 'rgba(30, 30, 30, 0.95)']}
-                    style={styles.imageOverlay}
-                  />
-                </View>
-                
-                <View style={styles.arcInfo}>
-                  <View style={styles.arcHeader}>
-                    <Text style={styles.arcName}>{arc.name}</Text>
-                    <Text style={styles.arcProgress}>
-                      {arc.days.length} DAYS
-                    </Text>
+                <LinearGradient
+                  colors={[
+                    isCurrentArc 
+                      ? 'rgba(255, 78, 78, 0.2)' 
+                      : isPastArc
+                        ? 'rgba(122, 0, 243, 0.2)'
+                        : 'rgba(30, 30, 30, 0.95)',
+                    'rgba(30, 30, 30, 0.95)',
+                  ]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.arcContent}
+                >
+                  <View style={styles.arcImageContainer}>
+                    <Image 
+                      source={{ uri: arc.imageUrl }}
+                      style={styles.arcImage}
+                      resizeMode="cover"
+                    />
+                    <LinearGradient
+                      colors={['transparent', 'rgba(30, 30, 30, 0.95)']}
+                      style={styles.imageOverlay}
+                    />
                   </View>
                   
-                  <Text style={styles.arcDescription}>
-                    {arc.description}
-                  </Text>
-                  
-                  {index === currentArcIndex && (
-                    <View style={styles.currentIndicator}>
-                      <Text style={styles.currentText}>CURRENT ARC</Text>
+                  <View style={styles.arcInfo}>
+                    <View style={styles.arcHeader}>
+                      <Text style={styles.arcName}>{arc.name}</Text>
+                      <Text style={[
+                        styles.arcProgress,
+                        { color: isCurrentArc ? '#FF4E4E' : isPastArc ? '#7A00F3' : '#5A5A5A' }
+                      ]}>
+                        {arc.days.length} DAYS
+                      </Text>
                     </View>
-                  )}
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      ))}
+                    
+                    <Text style={styles.arcDescription}>
+                      {arc.description}
+                    </Text>
+                    
+                    {isCurrentArc && (
+                      <View style={styles.currentIndicator}>
+                        <Text style={styles.currentText}>CURRENT ARC</Text>
+                      </View>
+                    )}
+                    
+                    {isPastArc && (
+                      <View style={[styles.currentIndicator, styles.completedIndicator]}>
+                        <Text style={[styles.currentText, styles.completedText]}>
+                          COMPLETED
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        );
+      })}
       
       {/* Bottom Spacing */}
       <View style={styles.bottomSpace} />
@@ -253,6 +293,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#0F0F0F',
   },
   nodeInner: {
     width: NODE_SIZE - 8,
@@ -266,7 +307,6 @@ const styles = StyleSheet.create({
     width: width * 0.85,
     height: ARC_HEIGHT,
     borderRadius: 16,
-    shadowColor: '#7A00F3',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
     shadowRadius: 5,
@@ -319,7 +359,6 @@ const styles = StyleSheet.create({
   arcProgress: {
     fontFamily: 'SpaceMono-Regular',
     fontSize: 12,
-    color: '#FF4E4E',
     letterSpacing: 1,
   },
   arcDescription: {
@@ -335,16 +374,23 @@ const styles = StyleSheet.create({
     right: 24,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: 'rgba(122, 0, 243, 0.2)',
+    backgroundColor: 'rgba(255, 78, 78, 0.2)',
     borderRadius: 4,
     borderWidth: 1,
+    borderColor: '#FF4E4E',
+  },
+  completedIndicator: {
+    backgroundColor: 'rgba(122, 0, 243, 0.2)',
     borderColor: '#7A00F3',
   },
   currentText: {
     fontFamily: 'SpaceMono-Regular',
     fontSize: 12,
-    color: '#7A00F3',
+    color: '#FF4E4E',
     letterSpacing: 1,
+  },
+  completedText: {
+    color: '#7A00F3',
   },
   bottomSpace: {
     height: ARC_SPACING,
